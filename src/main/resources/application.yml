@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: appconfig-kafka-consumer
+  config:
+    import: optional:azureAppConfiguration # allow application to start if App Configuration is unreachable
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP}
+      auto-offset-reset: earliest
+    listener:
+      observation-enabled: true
+      # We manage the listener start/stop lifecycle dynamically
+  cloud:
+    azure:
+      appconfiguration:
+        stores:
+          - connection-string: ${APP_CONFIG_CONNECTION_STRING}
+            enabled: true
+            feature-flags:
+              enabled: true
+        enabled: true
+
+app:
+  kafka:
+    topic: ${KAFKA_TOPIC_NAME}
+  feature-flag:
+    # The name of the feature flag to evaluate
+    name: ${FEATURE_FLAG_NAME}
+    # Fallback if Azure App Config is truly unreachable
+    default-enabled: ${FEATURE_FLAG_DEFAULT_ENABLED:false}
