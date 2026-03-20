@@ -5,6 +5,7 @@ This repository contains a Spring Boot application that dynamically manages a Ka
 ## Key Features
 - **Dynamic Kafka Consumer**: Automatically starts and stops the Kafka listener based on feature flag status.
 - **Azure App Configuration**: Uses Azure App Configuration for centralized feature management and dynamic configuration.
+- **Observable Metrics**: Capture feature flag state and Kafka consumer running status with OpenTelemetry.
 
 ---
 
@@ -105,14 +106,27 @@ curl -i http://localhost:8080/
    `Kafka listener state matches feature flag. (Flag: ON=true/false, Running=true/false)`
 
 ### 3. Observability
-- **Kafka UI**: `http://localhost:8081`
+- **Kafka UI**: `http://localhost:8081` - Submit messages to Kafka topics.
+- **Grafana**: `http://localhost:3000` - View real-time metrics and dashboards.
+  - **Login**: None required (Anonymous access enabled)
+  - **Metrics**: 
+
+![Grafana Metrics](docs/grafana-metrics.png)
 
 ---
 
 ## Implementation Details
 
-The application uses a `@Scheduled` task in `KafkaLifecycleScheduler.java` to check for feature flag changes every 10 seconds.  Under the hood Azure App Configuration SDK will check every 30 seconds, returning cached values in the meantime.
+The application uses a `@Scheduled` task in `KafkaLifecycleScheduler.java` to check for feature flag changes every 10 seconds. Under the hood, the Azure App Configuration SDK will check every 30 seconds, returning cached values in the meantime.
 
 If the feature flag is enabled then the Kafka listener is started if not already running.
 
 If the feature flag is disabled then the Kafka listener is stopped if not already stopped.
+
+### Metrics
+Two OpenTelemetry Asynchronous Gauges are registered:
+- `feature_flag_status_ratio`: Indicates if the feature flag is enabled (1) or disabled (0) as viewed from the perspective of the service.
+- `kafka_consumer_running_ratio`: Indicates if the Kafka consumer is running (1) or stopped (0).
+- Metrics are submitted every 60 seconds
+
+These metrics are recorded with labels such as `host.name`, `listener.id`, and `listener.group` for granular observability across multiple instances.

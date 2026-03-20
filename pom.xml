@@ -17,6 +17,7 @@
 	<properties>
 		<java.version>17</java.version>
 		<spring-cloud-azure.version>6.1.0</spring-cloud-azure.version>
+		<opentelemetry.version>1.59.0</opentelemetry.version>
 	</properties>
 
 	<dependencies>
@@ -40,6 +41,14 @@
 			<groupId>com.azure.spring</groupId>
 			<artifactId>spring-cloud-azure-feature-management</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-sdk</artifactId>
+		</dependency>
 	</dependencies>
 
 	<dependencyManagement>
@@ -48,6 +57,13 @@
 				<groupId>com.azure.spring</groupId>
 				<artifactId>spring-cloud-azure-dependencies</artifactId>
 				<version>${spring-cloud-azure.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.opentelemetry</groupId>
+				<artifactId>opentelemetry-bom</artifactId>
+				<version>${opentelemetry.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
