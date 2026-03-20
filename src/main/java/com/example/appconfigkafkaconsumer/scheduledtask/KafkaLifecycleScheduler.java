@@ -5,6 +5,11 @@ import com.azure.spring.cloud.appconfiguration.config.AppConfigurationStoreHealt
 import com.azure.spring.cloud.feature.management.FeatureManager;
 import com.example.appconfigkafkaconsumer.consumer.FeatureFlagKafkaConsumer;
 
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.Meter;
+import jakarta.annotation.PostConstruct;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +26,7 @@ public class KafkaLifecycleScheduler {
     private final KafkaListenerEndpointRegistry registry;
     private final FeatureManager featureManager;
     private final AppConfigurationRefresh appConfigurationRefresh;
+    private final Meter meter;
 
     @Value("${app.feature-flag.name}")
     private String featureFlagName;
@@ -29,10 +35,42 @@ public class KafkaLifecycleScheduler {
     private boolean defaultEnabled;
 
     public KafkaLifecycleScheduler(KafkaListenerEndpointRegistry registry, FeatureManager featureManager,
-            AppConfigurationRefresh appConfigurationRefresh) {
+            AppConfigurationRefresh appConfigurationRefresh, Meter meter) {
         this.registry = registry;
         this.featureManager = featureManager;
         this.appConfigurationRefresh = appConfigurationRefresh;
+        this.meter = meter;
+    }
+
+    @PostConstruct
+    public void initializeMetrics() {
+        // register metric for kafka consumer running status
+        meter.gaugeBuilder("kafka_consumer_running")
+                .setDescription("Reports 1 if the Kafka consumer is running, 0 otherwise")
+                .setUnit("1")
+                .ofLongs()
+                .buildWithCallback(measurement -> {
+                    MessageListenerContainer container = registry
+                            .getListenerContainer(FeatureFlagKafkaConsumer.LISTENER_ID);
+                    long status = (container != null && container.isRunning()) ? 1L : 0L;
+                    measurement.record(status, Attributes.of(
+                            AttributeKey.stringKey("listener.id"), FeatureFlagKafkaConsumer.LISTENER_ID,
+                            AttributeKey.stringKey("listener.group"), container.getGroupId()));
+                    log.info("Reporting Kafka consumer status gauge: {}", status);
+                });
+
+        // register metric for feature flag status as seen by instance
+        meter.gaugeBuilder("feature_flag_status")
+                .setDescription("Reports 1 if kafka consumer enabled feature flag is true, 0 otherwise")
+                .setUnit("1")
+                .ofLongs()
+                .buildWithCallback(measurement -> {
+                    long status = (featureManager != null && featureManager.isEnabledAsync(featureFlagName).block())
+                            ? 1L
+                            : 0L;
+                    measurement.record(status);
+                    log.info("Reporting feature flag status gauge: {}", status);
+                });
     }
 
     // Runs every 10 seconds to check flag status
